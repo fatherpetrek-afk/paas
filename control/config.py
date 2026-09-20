@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -22,5 +23,21 @@ HEARTBEAT_TTL_SEC = 15
 SESSION_TTL_SEC = 8 * 3600
 SESSION_LOCK_SEC = 90
 WORKER_CONSOLE_PORT = int(os.environ.get("PAAS_WORKER_CONSOLE_PORT", "9090"))
-ADMIN_USERNAME = "54299486"
-ADMIN_PASSWORD = "1376337821900000"
+
+
+def _admin_from_file() -> tuple[str, str]:
+    path = DATA_DIR / "admin.json"
+    if not path.is_file():
+        return "", ""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return "", ""
+    if not isinstance(data, dict):
+        return "", ""
+    return str(data.get("username") or "").strip(), str(data.get("password") or "").strip()
+
+
+_file_user, _file_pw = _admin_from_file()
+ADMIN_USERNAME = (os.environ.get("PAAS_ADMIN_USERNAME") or _file_user or "").strip()
+ADMIN_PASSWORD = (os.environ.get("PAAS_ADMIN_PASSWORD") or _file_pw or "").strip()

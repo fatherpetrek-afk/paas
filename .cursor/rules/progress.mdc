@@ -9,7 +9,7 @@ Personal/small-team compute PaaS. Control (FastAPI + SQLite, `0.0.0.0:8080`) doe
 
 ## Done (do not reopen unless asked)
 
-- Roles: User / Worker / Admin. One hardcoded Admin (`54299486`). Admin cannot submit jobs and cannot be blocked.
+- Roles: User / Worker / Admin. Admin username/password from `PAAS_ADMIN_*` or gitignored `data/admin.json` (not hardcoded in source). Admin cannot submit jobs and cannot be blocked.
 - Unified login on 8080 and 9090. Default language EN. Worker tab on 8080: Register here, log in on 9090.
 - Jobs: `queued` → `running` → `succeeded` / `failed` / `cancelled`. Failed = error only. Stop or queue-remove by Worker/Admin → `cancelled` → Removed.
 - Per-Worker blocklist. User cannot delete submitted jobs. Queue edit needs Pause all or an anchor.
