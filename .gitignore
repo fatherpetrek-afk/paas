@@ -10,6 +10,8 @@ artifacts/
 .py
 .zip
 instruction
+plan
+tests/probe_queue.py
 examples/2012hwexample.zip
 允许手机访问.bat
 开启电脑热点.bat
