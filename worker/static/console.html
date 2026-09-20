@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Worker console · Team PaaS</title>
+  <style>
+    body { margin: 0; background: #121212; color: #e8e8e8; font: 14px/1.5 "Segoe UI", sans-serif; }
+    .wrap { max-width: 760px; margin: 24px auto; padding: 16px; background: #1b1b1b; border: 1px solid #2a2a2a; }
+    h1 { font-size: 18px; margin: 0 0 8px; }
+    h2 { font-size: 15px; margin: 18px 0 8px; }
+    label { display: block; margin: 12px 0 6px; color: #8a8a8a; }
+    input { width: 100%; box-sizing: border-box; background: #111; color: inherit; border: 1px solid #2a2a2a; padding: 8px; }
+    button { background: transparent; color: #e8e8e8; border: 1px solid #2a2a2a; padding: 6px 10px; cursor: pointer; margin: 4px 6px 4px 0; }
+    button.primary { background: #2a2a2a; }
+    button.danger { color: #e07a7a; border-color: #e07a7a; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    button.lock { min-width: 160px; }
+    button.lock.on { border-color: #7fd99a; color: #7fd99a; }
+    button.lock.off { border-color: #d9b36c; color: #d9b36c; }
+    .lang-switch, .role-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .lang-switch button.active, .role-tabs button.active { border-color: #7aa2f7; color: #7aa2f7; }
+    .acct.offline { opacity: 0.45; }
+    .acct.online { opacity: 1; }
+    .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .muted { color: #8a8a8a; }
+    .error { color: #e07a7a; }
+    .row { display: flex; justify-content: space-between; align-items: center; margin: 12px 0; gap: 8px; }
+    #block-user { flex: 1; width: auto; }
+    .item { border: 1px solid #2a2a2a; padding: 8px; margin: 6px 0; background: #151515; }
+    .item.anchor { border-color: #d9b36c; }
+    .item.running { border-color: #7aa2f7; }
+    .pill { display: inline-block; border: 1px solid #2a2a2a; padding: 0 6px; margin-right: 6px; color: #8a8a8a; font-size: 12px; }
+    .occ { padding: 10px; border: 1px solid #2a2a2a; margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1 data-i18n="title">Team PaaS</h1>
+    </div>
+    <div id="login">
+      <div class="role-tabs">
+        <button type="button" id="role-user" data-i18n="role_user">User</button>
+        <button type="button" id="role-worker" class="active" data-i18n="role_worker">Worker</button>
+        <button type="button" id="role-admin" data-i18n="role_admin">Admin</button>
+      </div>
+      <div id="worker-auth-tabs" class="role-tabs">
+        <button type="button" id="tab-login" class="active" data-i18n="tab_login">Log in</button>
+        <button type="button" id="tab-register" data-i18n="tab_register">Register</button>
+      </div>
+      <p id="role-hint" class="muted" hidden></p>
+      <div id="portal-fields">
+        <label data-i18n="username">Username</label>
+        <input id="username" inputmode="numeric" autocomplete="username" maxlength="9" />
+        <label data-i18n="password">Password</label>
+        <input id="password" inputmode="numeric" autocomplete="current-password" maxlength="19" />
+      </div>
+      <button type="button" id="login-btn" class="primary" data-i18n="enter">Enter</button>
+      <p id="err" class="error" hidden></p>
+    </div>
+    <div id="panel" hidden>
+      <div class="row">
+        <p><span data-i18n="device">Device</span>: <strong id="name"></strong> <span id="platform-tag" class="pill" hidden>platform</span></p>
+        <button type="button" id="logout-btn" data-i18n="logout">Log out</button>
+      </div>
+      <div class="row">
+        <span data-i18n="lock_run">Accept jobs</span>
+        <button type="button" id="run-btn" class="lock"></button>
+      </div>
+      <div class="row">
+        <span data-i18n="lock_limits">Remote CPU/GPU limits</span>
+        <button type="button" id="sec-btn" class="lock"></button>
+      </div>
+      <div class="row">
+        <span data-i18n="lock_change">Installs & file changes</span>
+        <button type="button" id="admin-btn" class="lock"></button>
+      </div>
+      <h2 data-i18n="blocklist_title">Blocklist</h2>
+      <div class="row">
+        <input id="block-user" inputmode="numeric" maxlength="9" placeholder="5429 1234" />
+        <button type="button" id="block-add" class="danger" data-i18n="block_user">Block User</button>
+      </div>
+      <div id="blocklist"></div>
+      <h2 data-i18n="tab_shared">Shared</h2>
+      <div id="share-grants"></div>
+      <div id="share-files"></div>
+      <div id="share-log"></div>
+      <h2 data-i18n="occupancy">Occupancy</h2>
+      <div id="occ" class="occ muted"></div>
+      <h2 data-i18n="queue">Queue</h2>
+      <p class="muted" id="freeze-hint"></p>
+      <div>
+        <button type="button" id="pause-btn" data-i18n="pause_all">Pause all</button>
+        <button type="button" id="resume-btn" data-i18n="resume_all">Resume all</button>
+      </div>
+      <div id="queue"></div>
+      <h2 data-i18n="recent_title">Recent failed / stopped</h2>
+      <div id="recent"></div>
+      <p id="op-err" class="error" hidden></p>
+    </div>
+  </div>
+  <script>
+    const I18N = {
+        page_blurb: "Team PaaS · User / Worker / Admin. Worker signs in here on this PC.",
+        title: "Team PaaS",
+        role_user: "User",
+        role_worker: "Worker",
+        role_admin: "Admin",
+        tab_login: "Log in",
+        tab_register: "Register",
+        apply: "Submit application",
+        applied: "Application submitted",
+        username: "Username",
+        password: "Password",
+        already_logged_in: "This account is already signed in.",
+        cannot_block_admin: "Admin cannot be blocked.",
+        portal_open: "Continue on the User / Admin portal.",
+        admin_blurb: "Admin signs in on this PC.",
+        unregistered: "Account is not registered",
+        bad_password: "Wrong password",
+        bad_username: "Username must be 8 digits",
+        bad_pw_format: "Password must be 16 digits",
+        username_taken: "This username is already taken",
+        enter: "Enter",
+        device: "Device",
+        logout: "Log out",
+        logout_wait: "Cleaning up jobs…",
+        logout_fail: "A job is still stopping. Try again in a moment.",
+        join_fail: "Could not join",
+        label_taken: "This Worker is already signed in.",
+        timeout: "Control did not respond in time.",
+        password_required: "Enter username and password.",
+        lock_run: "Accept jobs",
+        lock_run_hint: "Off: this Worker will not take new jobs.",
+        lock_limits: "Remote CPU/GPU limits",
+        lock_limits_hint: "On: the platform may set CPU / GPU / memory limits for jobs.",
+        lock_change: "Installs & file changes",
+        lock_change_hint: "On: a job may install packages or change files on this Worker.",
+        lock_on: "ON · click to turn off",
+        lock_off: "OFF · click to turn on",
+        occupancy: "Occupancy",
+        no_job: "no running job",
+        using: "is using",
+        process: "process",
+        frozen: "frozen (pause all)",
+        stop: "Stop",
+        queue: "Queue",
+        pause_all: "Pause all",
+        resume_all: "Resume all",
+        freeze_on: "Pause all is on. Queue edits are allowed. Reorder still needs an anchor.",
+        freeze_anchor: "Anchor is in the queue. Jobs after the first anchor can be reordered.",
+        freeze_off: "Insert an anchor, or Pause all, before deleting queued jobs. Reorder lights up only after an anchor.",
+        hold_anchor: "hold here until released",
+        release: "Release anchor",
+        anchor_before: "Anchor before",
+        anchor_after: "Anchor after",
+        delete_queued: "Delete queued",
+        blocklist_title: "Blocklist",
+        blocklist_hint: "Only this Worker. The user can still use other Workers.",
+        blocklist_empty: "No blocked users.",
+        block_user: "Block User",
+        unblock_user: "Unblock User",
+        reorder: "Reorder jobs after the first anchor (move selected id earlier)",
+        reorder_off: "Reorder is off until an anchor is inserted.",
+        recent_title: "Recent failed / stopped",
+        none: "none",
+        waiting: "waiting for Control",
+        tab_shared: "Shared",
+        share_open: "Open",
+        share_granted: "Granted",
+        share_pending: "Pending",
+        share_revoke: "Revoke",
+        share_remove: "Remove",
+        share_empty: "No files.",
+        share_log: "Log",
+        share_grants: "Grants",
+        approve: "Approve",
+        download: "Download",
+        share_cancel: "Cancel",
+        share_uploading: "Uploading",
+        cancelled: "Upload cancelled.",
+    };
+
+    const tokenKey = "paas_worker_console";
+    const CONTROL = "http://127.0.0.1:8080";
+    let loginRole = "worker";
+    let authMode = "login";
+    let lastLoginError = "";
+    const $ = (id) => document.getElementById(id);
+    function t(key) {
+      return I18N[key] || key;
+    }
+    function applyI18n() {
+      document.documentElement.lang = "en";
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        el.textContent = t(el.dataset.i18n);
+      });
+      syncLoginRole();
+      if (lastLoginError) showLoginError(lastLoginError);
+    }
+    function loginErrorCode(raw) {
+      const s = String(raw || "").trim();
+      if (!s) return "";
+      if (I18N[s]) return s;
+      if (/尚未激活|还没激活|還沒啟動|未激活|platform_off|enter .dev/i.test(s)) return "platform_off";
+      if (s === "重名" || s === "duplicate" || s === "label_taken") return "label_taken";
+      if (/already_logged_in|已经登录|已經登入/.test(s)) return "already_logged_in";
+      return s;
+    }
+    function showLoginError(raw) {
+      lastLoginError = loginErrorCode(raw);
+      $("err").className = "error";
+      $("err").hidden = !lastLoginError;
+      $("err").textContent = lastLoginError ? t(lastLoginError) : "";
+    }
+    function onlyDigits(value) {
+      return String(value || "").replace(/\D/g, "");
+    }
+    function groupDigits(value, groups) {
+      const digits = onlyDigits(value).slice(0, groups * 4);
+      return digits.match(/.{1,4}/g)?.join(" ") || "";
+    }
+    function bindGrouped(el, groups) {
+      if (!el || el.dataset.bound) return;
+      el.dataset.bound = "1";
+      el.addEventListener("input", () => {
+        el.value = groupDigits(el.value, groups);
+      });
+    }
+    function syncLoginRole() {
+      ["user", "worker", "admin"].forEach((id) => {
+        const btn = $("role-" + id);
+        if (btn) btn.className = loginRole === id ? "active" : "";
+      });
+      const tabs = $("worker-auth-tabs");
+      if (tabs) tabs.hidden = loginRole !== "worker";
+      const portal = $("portal-fields");
+      if (portal) portal.hidden = false;
+      const hint = $("role-hint");
+      if (hint) {
+        if (loginRole === "worker") {
+          hint.hidden = true;
+          hint.textContent = "";
+        } else {
+          hint.hidden = false;
+          hint.textContent = t("portal_open");
+        }
+      }
+      const loginTab = $("tab-login");
+      const regTab = $("tab-register");
+      if (loginTab) loginTab.className = authMode === "login" ? "active" : "";
+      if (regTab) regTab.className = authMode === "register" ? "active" : "";
+      const btn = $("login-btn");
+      if (btn) btn.textContent = loginRole === "worker" && authMode === "register" ? t("apply") : t("enter");
+    }
+    function headers() {
+      return { "Content-Type": "application/json", "X-Worker-Console": sessionStorage.getItem(tokenKey) || "" };
+    }
+    async function api(path, body) {
+      const res = await fetch(path, { method: "POST", headers: headers(), body: JSON.stringify(body || {}) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || data.error || res.statusText);
+      return data;
+    }
+    function showErr(msg) {
+      $("op-err").hidden = !msg;
+      $("op-err").textContent = msg || "";
+    }
+    function setLock(btn, on) {
+      btn.textContent = on ? t("lock_on") : t("lock_off");
+      btn.className = "lock " + (on ? "on" : "off");
+    }
+    let lastShare = null;
+    function esc(s) {
+      return String(s).replace(/[&<>"'`]/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;", "`": "&#96;",
+      }[c]));
+    }
+    function formatBytes(n) {
+      const x = Number(n) || 0;
+      if (x < 1024) return `${x}B`;
+      if (x < 1024 * 1024) return `${(x / 1024).toFixed(1)}KB`;
+      return `${(x / 1024 / 1024).toFixed(1)}MB`;
+    }
+    async function downloadShareFile(id) {
+      const file = (lastShare && lastShare.files || []).find((f) => f.id === id);
+      const res = await fetch("/api/share/files/" + encodeURIComponent(id), {
+        headers: { "X-Worker-Console": sessionStorage.getItem(tokenKey) || "" },
+      });
+      if (!res.ok) throw new Error(t("share_empty"));
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = (file && file.name) || "file";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+    function renderShare(share) {
+      lastShare = share || null;
+      const grantsEl = $("share-grants");
+      const filesEl = $("share-files");
+      const logEl = $("share-log");
+      if (!grantsEl || !filesEl || !logEl) return;
+      if (!share) {
+        grantsEl.innerHTML = "";
+        filesEl.innerHTML = "";
+        logEl.innerHTML = "";
+        return;
+      }
+      const grants = share.grants || [];
+      grantsEl.innerHTML = `<div class="muted">${t("share_grants")}</div>` + (grants.length
+        ? grants.map((g) => `<div class="item"><strong>${esc(groupDigits(g.user_name, 2))}</strong>
+            <span class="pill">${g.status === "approved" ? t("share_granted") : t("share_pending")}</span>
+            <div>
+              ${g.status !== "approved" ? `<button type="button" data-sok="${esc(g.user_name)}">${t("approve")}</button>` : ""}
+              <button type="button" class="danger" data-srv="${esc(g.user_name)}">${t("share_revoke")}</button>
+            </div></div>`).join("")
+        : `<p class="muted">${t("none")}</p>`);
+      const files = share.files || [];
+      const uploads = share.uploads || [];
+      const groups = new Map();
+      for (const u of uploads) {
+        if (!groups.has(u.owner)) groups.set(u.owner, { open: [], granted: [], upOpen: [], upGranted: [] });
+        groups.get(u.owner)[u.kind === "granted" ? "upGranted" : "upOpen"].push(u);
+      }
+      for (const f of files) {
+        if (!groups.has(f.owner)) groups.set(f.owner, { open: [], granted: [], upOpen: [], upGranted: [] });
+        groups.get(f.owner)[f.kind === "granted" ? "granted" : "open"].push(f);
+      }
+      const fileRow = (f) => `<div class="item"><strong>${esc(f.name)}</strong>
+        <div class="muted">${f.kind} · ${formatBytes(f.size)}</div>
+        <div>
+          <button type="button" data-sdl="${f.id}">${t("download")}</button>
+          <button type="button" class="danger" data-srm="${f.id}">${t("share_remove")}</button>
+        </div></div>`;
+      const upRow = (u) => `<div class="item"><strong>${esc(u.name)}</strong>
+        <div class="muted">${t("share_uploading")}</div>
+        <div><button type="button" class="danger" data-scx="${u.id}">${t("share_cancel")}</button></div></div>`;
+      filesEl.innerHTML = groups.size
+        ? [...groups.entries()].map(([owner, pack]) => `<div class="item"><strong>${esc(groupDigits(owner, 2))}</strong>
+            <div class="muted">${t("share_open")}</div>
+            ${pack.upOpen.map(upRow).join("")}
+            ${pack.open.length ? pack.open.map(fileRow).join("") : (pack.upOpen.length ? "" : `<p class="muted">${t("share_empty")}</p>`)}
+            <div class="muted">${t("share_granted")}</div>
+            ${pack.upGranted.map(upRow).join("")}
+            ${pack.granted.length ? pack.granted.map(fileRow).join("") : (pack.upGranted.length ? "" : `<p class="muted">${t("share_empty")}</p>`)}
+          </div>`).join("")
+        : `<p class="muted">${t("share_empty")}</p>`;
+      const evs = share.events || [];
+      logEl.innerHTML = `<div class="muted">${t("share_log")}</div>` + (evs.length
+        ? evs.map((ev) => `<div class="item">${esc(ev.file_name || ev.kind || ev.action)} · ${esc(ev.action)} · ${esc(groupDigits(ev.actor, 2) || ev.actor)}</div>`).join("")
+        : `<p class="muted">${t("none")}</p>`);
+      const onShare = async (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLElement)) return;
+        showErr("");
+        try {
+          if (target.dataset.sok) await api("/api/share/approve", { username: target.dataset.sok });
+          if (target.dataset.srv) await api("/api/share/revoke", { username: target.dataset.srv });
+          if (target.dataset.srm) await api("/api/share/delete", { id: target.dataset.srm });
+          if (target.dataset.scx) await api("/api/share/cancel", { id: target.dataset.scx });
+          if (target.dataset.sdl) {
+            await downloadShareFile(target.dataset.sdl);
+            return;
+          }
+          load();
+        } catch (err) {
+          showErr(err.message);
+        }
+      };
+      grantsEl.onclick = onShare;
+      filesEl.onclick = onShare;
+    }
+    function renderBoard(state) {
+      const b = state.board;
+      if (!b) {
+        $("occ").textContent = state.board_error || t("waiting");
+        $("queue").innerHTML = "";
+        $("recent").innerHTML = "";
+        if ($("blocklist")) $("blocklist").innerHTML = "";
+        renderShare(state.share);
+        return;
+      }
+      const occ = b.occupancy;
+      if (occ) {
+        $("occ").innerHTML = `<strong>${occ.user_name}</strong> ${t("using")} ${Number(occ.cpu_percent).toFixed(0)}% CPU / ${occ.proc_count} ${t("process")}`
+          + (occ.frozen ? " · " + t("frozen") : "")
+          + `<div class="muted">${occ.job_name} · ${occ.job_id.slice(0, 8)}</div>`
+          + `<button type="button" class="danger" data-stop="${occ.job_id}">${t("stop")}</button>`;
+      } else {
+        $("occ").textContent = t("no_job");
+      }
+      $("occ").onclick = async (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLElement) || !target.dataset.stop) return;
+        showErr("");
+        try {
+          await api("/api/stop", { id: target.dataset.stop });
+          load();
+        } catch (err) {
+          showErr(err.message);
+        }
+      };
+      const freeze = b.can_edit_queue;
+      $("freeze-hint").textContent = freeze
+        ? (b.pause_all ? t("freeze_on") : t("freeze_anchor"))
+        : t("freeze_off");
+      $("pause-btn").disabled = !!b.pause_all;
+      $("resume-btn").disabled = !b.pause_all;
+      const bl = $("blocklist");
+      if (bl) {
+        const users = b.blocked_users || [];
+        bl.innerHTML = users.length
+          ? users.map((u) => `<div class="item"><strong>${String(u).replace(/(\d{4})(?=\d)/g, "$1 ")}</strong>
+              <button type="button" data-unblock="${u}">${t("unblock_user")}</button></div>`).join("")
+          : `<p class="muted">${t("blocklist_empty")}</p>`;
+        bl.onclick = async (e) => {
+          const target = e.target;
+          if (!(target instanceof HTMLElement) || !target.dataset.unblock) return;
+          showErr("");
+          try {
+            await api("/api/unblock", { user_name: target.dataset.unblock });
+            load();
+          } catch (err) {
+            showErr(err.message);
+          }
+        };
+      }
+      const box = $("queue");
+      box.innerHTML = "";
+      b.queue.forEach((item) => {
+        const el = document.createElement("div");
+        el.className = "item" + (item.kind === "anchor" ? " anchor" : "") + (item.state === "running" ? " running" : "");
+        if (item.kind === "anchor") {
+          el.innerHTML = `<span class="pill">anchor</span> ${t("hold_anchor")}
+            <div><button type="button" data-release="${item.id}">${t("release")}</button></div>`;
+        } else {
+          const blocked = (b.blocked_users || []).includes(item.user_name);
+          const canDel = freeze && item.state === "queued";
+          const canAnchorBefore = item.state === "queued" || item.state === "running";
+          const afterOk = item.state === "queued";
+          el.innerHTML = `<strong>${item.name}</strong>
+            <div class="muted"><span class="pill">${item.state}</span> User ${item.user_name || "?"} · ${item.id.slice(0, 8)}${blocked ? " · blocked" : ""}</div>
+            <div>
+              ${item.state === "running" ? `<button type="button" class="danger" data-stop="${item.id}">${t("stop")}</button>
+              <button type="button" data-after="${item.id}">${t("anchor_after")}</button>` : ""}
+              ${canAnchorBefore && item.state === "queued" ? `<button type="button" data-before="${item.id}">${t("anchor_before")}</button>` : ""}
+              ${afterOk ? `<button type="button" data-after="${item.id}">${t("anchor_after")}</button>` : ""}
+              ${canDel ? `<button type="button" class="danger" data-del="${item.id}">${t("delete_queued")}</button>` : ""}
+              ${item.user_name && item.user_name !== "54299486" && !blocked ? `<button type="button" class="danger" data-block="${item.user_name}">${t("block_user")}</button>` : ""}
+              ${item.user_name && blocked ? `<button type="button" data-unblock="${item.user_name}">${t("unblock_user")}</button>` : ""}
+            </div>`;
+        }
+        box.appendChild(el);
+      });
+      if (b.can_reorder && b.reorder_job_ids.length >= 2) {
+        const tools = document.createElement("div");
+        tools.className = "item";
+        tools.innerHTML = `<span class="muted">${t("reorder")}</span>
+          <div>${b.reorder_job_ids.map((id, i) => `<button type="button" data-up="${id}" ${i===0?"disabled":""}>▲ ${id.slice(0,8)}</button>`).join("")}</div>`;
+        box.appendChild(tools);
+      } else if (!b.has_anchor) {
+        const tools = document.createElement("div");
+        tools.className = "muted";
+        tools.textContent = t("reorder_off");
+        box.appendChild(tools);
+      }
+      const recent = $("recent");
+      recent.innerHTML = "";
+      for (const item of b.recent || []) {
+        const el = document.createElement("div");
+        el.className = "item";
+        el.innerHTML = `<strong>${item.name}</strong>
+          <div class="muted">${item.state} · User ${item.user_name || "?"} · ${item.id.slice(0, 8)}</div>
+          <div class="muted">${item.error || ""}</div>`;
+        recent.appendChild(el);
+      }
+      if (!(b.recent || []).length) recent.innerHTML = `<p class="muted">${t("none")}</p>`;
+      renderShare(state.share);
+      box.onclick = async (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLElement)) return;
+        showErr("");
+        try {
+          if (target.dataset.stop) await api("/api/stop", { id: target.dataset.stop });
+          if (target.dataset.release) await api("/api/anchor/release", { id: target.dataset.release });
+          if (target.dataset.before) await api("/api/anchor", { before_id: target.dataset.before });
+          if (target.dataset.after) await api("/api/anchor", { after_id: target.dataset.after });
+          if (target.dataset.del) await api("/api/queue/delete", { id: target.dataset.del });
+          if (target.dataset.block) await api("/api/block", { user_name: target.dataset.block });
+          if (target.dataset.unblock) await api("/api/unblock", { user_name: target.dataset.unblock });
+          if (target.dataset.up) {
+            const ids = [...b.reorder_job_ids];
+            const i = ids.indexOf(target.dataset.up);
+            if (i > 0) {
+              [ids[i - 1], ids[i]] = [ids[i], ids[i - 1]];
+              await api("/api/reorder", { job_ids: ids });
+            }
+          }
+          load();
+        } catch (err) {
+          showErr(err.message);
+        }
+      };
+    }
+    async function load() {
+      const res = await fetch("/api/state", { headers: headers() });
+      if (res.status === 401) {
+        $("login").hidden = false;
+        $("panel").hidden = true;
+        applyI18n();
+        return;
+      }
+      const data = await res.json();
+      $("login").hidden = true;
+      $("panel").hidden = false;
+      applyI18n();
+      const who = sessionStorage.getItem(tokenKey + "_user") || data.user || data.name || "";
+      $("name").textContent = onlyDigits(who).length === 8 ? groupDigits(who, 2) : (data.name || who);
+      $("platform-tag").hidden = !data.is_platform;
+      setLock($("run-btn"), data.run_open);
+      setLock($("sec-btn"), data.security_open);
+      setLock($("admin-btn"), data.admin_open);
+      renderBoard(data);
+    }
+    $("role-user").onclick = () => { loginRole = "user"; authMode = "login"; syncLoginRole(); };
+    $("role-worker").onclick = () => { loginRole = "worker"; syncLoginRole(); };
+    $("role-admin").onclick = () => { loginRole = "admin"; authMode = "login"; syncLoginRole(); };
+    $("tab-login").onclick = () => { authMode = "login"; syncLoginRole(); };
+    $("tab-register").onclick = () => { authMode = "register"; syncLoginRole(); };
+    bindGrouped($("username"), 2);
+    bindGrouped($("password"), 4);
+    bindGrouped($("block-user"), 2);
+    $("block-add").onclick = async () => {
+      showErr("");
+      const user = onlyDigits($("block-user").value);
+      if (user.length !== 8) return;
+      if (user === "54299486") {
+        showErr(t("cannot_block_admin"));
+        return;
+      }
+      try {
+        await api("/api/block", { user_name: user });
+        $("block-user").value = "";
+        load();
+      } catch (err) {
+        showErr(err.message === "cannot_block_admin" ? t("cannot_block_admin") : err.message);
+      }
+    };
+    $("login-btn").onclick = async () => {
+      lastLoginError = "";
+      $("err").hidden = true;
+      const username = onlyDigits($("username").value);
+      const password = onlyDigits($("password").value);
+      if (loginRole !== "worker") {
+        try {
+          const res = await fetch(CONTROL + "/api/v1/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: loginRole, username, password }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            showLoginError(data.detail || data.error || t("join_fail"));
+            return;
+          }
+          window.location.href = CONTROL + "/#resume=" + encodeURIComponent(data.token);
+        } catch (err) {
+          showLoginError(err.message || t("join_fail"));
+        }
+        return;
+      }
+      if (authMode === "register") {
+        try {
+          const res = await fetch(CONTROL + "/api/v1/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: "worker", username, password }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            showLoginError(data.detail || data.error || t("join_fail"));
+            return;
+          }
+          showLoginError("");
+          $("err").hidden = false;
+          $("err").className = "muted";
+          $("err").textContent = t("applied");
+          authMode = "login";
+          syncLoginRole();
+        } catch (err) {
+          showLoginError(err.message || t("join_fail"));
+        }
+        return;
+      }
+      const res = await fetch(CONTROL + "/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "worker", username, password }),
+      });
+      const auth = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showLoginError(auth.detail || auth.error || t("join_fail"));
+        return;
+      }
+      const join = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await join.json().catch(() => ({}));
+      if (!join.ok) {
+        showLoginError(data.error || data.detail || t("join_fail"));
+        return;
+      }
+      sessionStorage.setItem(tokenKey, data.token);
+      sessionStorage.setItem(tokenKey + "_user", username);
+      load();
+    };
+    $("run-btn").onclick = async () => {
+      const res = await fetch("/api/locks", { method: "POST", headers: headers(), body: JSON.stringify({ toggle: "run" }) });
+      if (res.ok) load();
+    };
+    $("sec-btn").onclick = async () => {
+      const res = await fetch("/api/locks", { method: "POST", headers: headers(), body: JSON.stringify({ toggle: "security" }) });
+      if (res.ok) load();
+    };
+    $("admin-btn").onclick = async () => {
+      const res = await fetch("/api/locks", { method: "POST", headers: headers(), body: JSON.stringify({ toggle: "admin" }) });
+      if (res.ok) load();
+    };
+    $("logout-btn").onclick = async () => {
+      const btn = $("logout-btn");
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = t("logout_wait");
+      showErr("");
+      try {
+        const res = await fetch("/api/logout-safe", { method: "POST", headers: headers(), body: "{}" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || data.error || res.statusText);
+        sessionStorage.removeItem(tokenKey);
+        sessionStorage.removeItem(tokenKey + "_user");
+        $("login").hidden = false;
+        $("panel").hidden = true;
+        applyI18n();
+      } catch (err) {
+        showErr(err.message === "still_running" ? t("logout_fail") : err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = t("logout");
+      }
+    };
+    $("pause-btn").onclick = async () => { showErr(""); try { await api("/api/pause", { on: true }); load(); } catch (e) { showErr(e.message); } };
+    $("resume-btn").onclick = async () => { showErr(""); try { await api("/api/pause", { on: false }); load(); } catch (e) { showErr(e.message); } };
+    applyI18n();
+    load();
+    setInterval(() => { if (!$("panel").hidden) load(); }, 1500);
+  </script>
+</body>
+</html>

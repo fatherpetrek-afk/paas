@@ -1,0 +1,36 @@
+---
+description: Team PaaS progress, next work, and product constraints
+alwaysApply: true
+---
+
+# Team PaaS progress
+
+Personal/small-team compute PaaS. Control (FastAPI + SQLite, `0.0.0.0:8080`) does not run user code. Worker pulls jobs. Worker console is localhost-only `127.0.0.1:9090`. Results stay on the User UI.
+
+## Done (do not reopen unless asked)
+
+- Roles: User / Worker / Admin. One hardcoded Admin (`54299486`). Admin cannot submit jobs and cannot be blocked.
+- Unified login on 8080 and 9090. Default language EN. Worker tab on 8080: Register here, log in on 9090.
+- Jobs: `queued` → `running` → `succeeded` / `failed` / `cancelled`. Failed = error only. Stop or queue-remove by Worker/Admin → `cancelled` → Removed.
+- Per-Worker blocklist. User cannot delete submitted jobs. Queue edit needs Pause all or an anchor.
+- Worker accounts: 8-digit username + 16-digit password, Admin approves on Worker occupancy (not Accounts). Accounts tab is Users only. Worker id is the username, so Shared files and grants survive logout and Control restart. Re-enter the same account on 9090 to come online. No free-form machine password / `dev` join token. Admin Remove machine cancels that Worker's jobs, drops the Worker row/account/shares, and the Worker must re-apply.
+- Platform is on whenever Control is running.
+- This PC is the cloud. No paid VPS. PC off means the platform is off.
+- Native/conda jobs are trusted host processes. Installs lock is a static scan, not a jail. API downloads are allowed; do not build URL or filesystem address mapping unless asked. Isolation later = optional Docker, not in-process path rewrite.
+- Shared folder: per-Worker Open (no apply) and Granted (apply, Worker/Admin approve, no user toast). Bytes live on that Worker at `data/worker-shared/open|granted/{user}/`; Control keeps a serving copy. Worker/Admin operate through the platform and ignore the installs lock. User store/remove is logged for Worker; Worker/Admin remove or cancel is logged for that User. User/Worker/Admin can cancel an in-progress upload in their scope. User can dispatch a stored single file (zip slot only) from Open or Granted. UI is English only.
+- Zip/project: Control builds `project.json` (tree, header deps, identity, ordered mains). Worker match uses the same scan as single file. Multiple mains run in zip order unless the zip already specifies `project.json` / `manifest.json`. C/C++/Java/Go link all translation units for that language; other mains stay out of that link.
+- Open with `start_platform.bat` (two visible Control / Worker consoles). Stop with `stop_platform.bat`. Do not hide those windows.
+- Interactive jobs: Stop is on User Jobs (list + Terminal), Worker occupancy/queue, and Admin occupancy/queue/accounts while a job is running. User Jobs has two windows: Terminal (logs, stdin, non-image output) and Display (captured canvases/plots/`plt.show`/`cv2.imshow`/PIL/pygame frames under `output/_display`, plus other images). Streamlit/Gradio/Flask/HTML bind `127.0.0.1` only; the User opens them through Control `/jobs/{id}/ui` (Display becomes App while it is up). `.html` jobs use that Python environment and `http.server`. Live `output/` is pushed while the job runs.
+- Sessions last 8 hours while the tab is open; a closed tab can log in elsewhere after ~90s. New jobs default to an 8-hour timeout; Stop still ends them. User can Stop their own queued job. Finished jobs have Run again (same Worker/env/artifact) and Store (result zip into that Worker's Open shared folder).
+- Worker process keeps `data/worker-session.json` and reuses that token after a Control/Worker restart. 9090 login is still required if the token is rejected. Graphics/interaction demos: `examples/draw_py.py`, `examples/draw.cpp`, `examples/draw.js`, `examples/draw.html`.
+- Submit place: System (default) or Manual. System picks an online accepting Worker whose env matches: idle first, shorter queue, slightly cooler CPU, sticky last Worker, GPU if the scan asks. Manual still picks Worker + env. Shared-folder dispatch stays Manual (bytes live on that Worker).
+
+## Next (do not start until asked)
+
+(none right now)
+
+## Constraints
+
+- Do not add Tailscale into the app. Do not Funnel 8080.
+- UI: keep necessary hints only. Do not add new instructional copy. Remove redundant blurbs.
+- Do not add extra job-UI chrome (quit button, extra copy) unless asked.

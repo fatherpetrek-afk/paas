@@ -1,0 +1,8 @@
+{
+  "name": "hello",
+  "runtime": "python:3.12",
+  "entry": "python main.py",
+  "os": ["linux", "windows", "darwin"],
+  "needs_gpu": false,
+  "timeout_sec": 60
+}

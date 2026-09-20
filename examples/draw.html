@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>draw</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #102030; color: #e8e8e8; font: 14px/1.4 sans-serif; }
+    .bar { display: flex; gap: 10px; align-items: center; padding: 8px 12px; background: #163048; }
+    canvas { display: block; margin: 12px auto; background: #0b1724; cursor: crosshair; border: 1px solid #2a4a66; }
+    button, select { background: #1e3a54; color: #e8e8e8; border: 1px solid #3a5a78; padding: 4px 8px; }
+    input[type=range] { width: 120px; }
+    #hint { opacity: .75; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <span id="hint">drag to draw · 1–4 colors · C clear</span>
+    <select id="mode">
+      <option value="draw">draw</option>
+      <option value="wave">wave</option>
+      <option value="bars">bars</option>
+    </select>
+    <label>size <input id="size" type="range" min="2" max="24" value="8" /></label>
+    <button id="clear" type="button">Clear</button>
+    <span id="stat"></span>
+  </div>
+  <canvas id="c" width="720" height="400"></canvas>
+  <script>
+    const c = document.getElementById("c");
+    const ctx = c.getContext("2d");
+    const colors = ["#e07a7a", "#7aa2f7", "#9ece6a", "#e0af68"];
+    let color = colors[0];
+    let drawing = false;
+    let t = 0;
+    function size() { return Number(document.getElementById("size").value) || 8; }
+    function mode() { return document.getElementById("mode").value; }
+    function stat(s) { document.getElementById("stat").textContent = s; }
+    function clear() {
+      ctx.fillStyle = "#0b1724";
+      ctx.fillRect(0, 0, c.width, c.height);
+      stat("clear");
+    }
+    function dot(x, y) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, size(), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    function wave() {
+      ctx.fillStyle = "#0b1724";
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.strokeStyle = "#7aa2f7";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let x = 0; x < c.width; x++) {
+        const y = c.height / 2 - 70 * Math.sin(x / 36 + t);
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.fillStyle = "#e07a7a";
+      ctx.beginPath();
+      ctx.arc(c.width / 2 + 90 * Math.cos(t * 0.7), c.height / 2 + 40 * Math.sin(t * 0.7), 16, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    function bars() {
+      ctx.fillStyle = "#0b1724";
+      ctx.fillRect(0, 0, c.width, c.height);
+      const n = 18;
+      const w = (c.width - 40) / n;
+      for (let i = 0; i < n; i++) {
+        const h = 40 + 90 * (0.4 + 0.6 * Math.abs(Math.sin(t * 0.8 + i * 0.35)));
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fillRect(20 + i * w, c.height - 24 - h, w - 6, h);
+      }
+    }
+    c.addEventListener("pointerdown", (e) => {
+      drawing = true;
+      c.setPointerCapture(e.pointerId);
+      const r = c.getBoundingClientRect();
+      dot(e.clientX - r.left, e.clientY - r.top);
+      stat("draw");
+    });
+    c.addEventListener("pointermove", (e) => {
+      if (!drawing || mode() !== "draw") return;
+      const r = c.getBoundingClientRect();
+      dot(e.clientX - r.left, e.clientY - r.top);
+    });
+    c.addEventListener("pointerup", () => { drawing = false; });
+    document.getElementById("clear").onclick = clear;
+    window.addEventListener("keydown", (e) => {
+      if (e.key >= "1" && e.key <= "4") { color = colors[Number(e.key) - 1]; stat("color " + e.key); }
+      if (e.key === "c" || e.key === "C") clear();
+    });
+    clear();
+    setInterval(() => {
+      t += 0.12;
+      const m = mode();
+      if (m === "wave") wave();
+      else if (m === "bars") bars();
+    }, 80);
+  </script>
+</body>
+</html>

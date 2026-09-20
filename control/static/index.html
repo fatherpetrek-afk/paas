@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Team PaaS</title>
+  <link rel="stylesheet" href="/static/style.css?v=place15" />
+</head>
+<body>
+  <div id="login" class="login">
+    <div class="login-card">
+      <h1>Team PaaS</h1>
+      <div id="access" class="access" hidden></div>
+      <div class="auth-tabs role-tabs">
+        <button type="button" id="role-user" class="ghost active" data-i18n="role_user">User</button>
+        <button type="button" id="role-worker" class="ghost" data-i18n="role_worker">Worker</button>
+        <button type="button" id="role-admin" class="ghost" data-i18n="role_admin">Admin</button>
+      </div>
+      <div id="user-tabs" class="auth-tabs">
+        <button type="button" id="tab-login" class="ghost active" data-i18n="tab_login">Log in</button>
+        <button type="button" id="tab-register" class="ghost" data-i18n="tab_register">Register</button>
+      </div>
+      <form id="login-form">
+        <div id="user-fields">
+          <label data-i18n="username">Username</label>
+          <input id="username" inputmode="numeric" autocomplete="username" maxlength="9" />
+          <label data-i18n="password">Password</label>
+          <input id="password" inputmode="numeric" autocomplete="current-password" maxlength="19" />
+        </div>
+        <div id="worker-fields" hidden>
+          <a id="worker-console-link" class="console-link" href="http://127.0.0.1:9090" data-i18n="worker_open_console">Open Worker console</a>
+        </div>
+        <button type="submit" id="auth-submit" disabled data-i18n="enter">Log in</button>
+        <p id="login-ok" class="ok-text" hidden></p>
+        <p id="login-error" class="error" hidden></p>
+      </form>
+    </div>
+  </div>
+
+  <div id="app" hidden>
+    <header>
+      <div>
+        <strong>Team PaaS</strong>
+        <span class="muted" id="who"></span>
+      </div>
+      <div class="header-right">
+        <nav>
+          <button data-tab="board" class="active" data-i18n="tab_workers">Worker</button>
+          <button data-tab="accounts" class="admin-only" hidden data-i18n="tab_accounts">Accounts</button>
+          <button data-tab="submit" class="user-only" data-i18n="tab_submit">Submit</button>
+          <button data-tab="jobs" class="user-only" data-i18n="tab_jobs">Jobs</button>
+          <button data-tab="shared" data-i18n="tab_shared">Shared</button>
+          <button data-tab="stats" class="user-only" data-i18n="tab_stats">Stats</button>
+        </nav>
+        <button type="button" id="logout-btn" class="ghost" data-i18n="logout">Log out</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="tab-board" class="tab">
+        <div class="row-head">
+          <h2 data-i18n="workers_title">Worker occupancy</h2>
+          <span class="muted" id="worker-count"></span>
+        </div>
+        <div id="workers" class="cards"></div>
+        <div id="admin-board" class="panel admin-only" hidden></div>
+      </section>
+
+      <section id="tab-accounts" class="tab" hidden>
+        <div class="row-head">
+          <h2 data-i18n="accounts_title">Platform accounts</h2>
+          <span class="muted" id="account-count"></span>
+        </div>
+        <div id="accounts" class="cards"></div>
+        <div id="admin-user" class="panel admin-only" hidden></div>
+        <details class="panel history-fold">
+          <summary data-i18n="history_title">Approval history</summary>
+          <div id="approval-history" class="list"></div>
+        </details>
+      </section>
+
+      <section id="tab-submit" class="tab" hidden>
+        <h2 data-i18n="submit_title">Submit</h2>
+        <div class="split">
+          <form id="submit-form">
+            <div class="panel">
+              <h3 data-i18n="single_file">Single file</h3>
+              <div class="file-row">
+                <input type="file" id="single-file" />
+                <button type="button" id="clear-single" class="ghost" hidden data-i18n="clear">Clear</button>
+              </div>
+              <select id="share-single"></select>
+              <p id="single-status" class="muted" data-i18n="no_file">No file selected</p>
+            </div>
+            <div class="panel">
+              <h3 data-i18n="project_zip">Project zip</h3>
+              <div class="file-row">
+                <input type="file" id="project-zip" accept=".zip" />
+                <button type="button" id="clear-zip" class="ghost" hidden data-i18n="clear">Clear</button>
+              </div>
+              <select id="share-zip"></select>
+              <p id="zip-status" class="muted" data-i18n="no_file">No file selected</p>
+            </div>
+            <div class="panel">
+              <div id="place-tabs" class="auth-tabs">
+                <button type="button" id="place-auto" class="ghost active" data-i18n="place_system">System</button>
+                <button type="button" id="place-manual" class="ghost" data-i18n="place_manual">Manual</button>
+              </div>
+              <div id="manual-worker">
+                <label>Worker</label>
+                <select id="worker-select"></select>
+              </div>
+              <button type="submit" data-i18n="dispatch">Dispatch</button>
+              <p id="submit-error" class="error" hidden></p>
+              <h3 data-i18n="env_label">Environment</h3>
+              <p id="scan-status" class="muted"></p>
+              <div id="env-list" class="env-list"></div>
+            </div>
+          </form>
+          <aside class="panel">
+            <h3 data-i18n="picked_worker">Selected Worker</h3>
+            <div id="picked-worker" class="muted" data-i18n="not_picked">None selected</div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="tab-jobs" class="tab" hidden>
+        <div class="jobs-layout">
+          <div>
+            <h2 data-i18n="jobs_title">Jobs</h2>
+            <div id="jobs" class="list"></div>
+          </div>
+          <div class="job-windows">
+            <div class="panel term-panel">
+              <div class="row-head">
+                <h3 id="job-title" data-i18n="terminal">Terminal</h3>
+                <div class="job-actions">
+                  <button type="button" id="stop-job" class="ghost danger" hidden data-i18n="stop">Stop</button>
+                  <button type="button" id="rerun-job" class="ghost" hidden data-i18n="run_again">Run again</button>
+                  <button type="button" id="store-job" class="ghost" hidden data-i18n="store_result">Store</button>
+                  <a id="result-link" hidden href="#" data-i18n="download_result">Download result</a>
+                </div>
+              </div>
+              <pre id="logs" class="term"></pre>
+              <div id="stdin-row" class="term-in" hidden>
+                <span class="term-prompt">&gt;</span>
+                <input id="stdin-text" autocomplete="off" />
+                <button type="button" id="stdin-send" class="ghost tiny" data-i18n="send">Send</button>
+              </div>
+              <div id="output-files"></div>
+            </div>
+            <div class="panel display-panel">
+              <div class="row-head">
+                <h3 id="display-title" data-i18n="display">Display</h3>
+              </div>
+              <iframe id="job-ui" class="job-ui" hidden title="App"></iframe>
+              <div id="display-view" class="display-view muted"></div>
+              <div id="display-thumbs" class="display-thumbs"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-shared" class="tab" hidden>
+        <div class="row-head">
+          <h2 data-i18n="tab_shared">Shared</h2>
+          <select id="share-worker"></select>
+        </div>
+        <div id="share-box"></div>
+      </section>
+
+      <section id="tab-stats" class="tab" hidden>
+        <h2 data-i18n="stats_title">Stats</h2>
+        <div id="stats" class="list"></div>
+      </section>
+    </main>
+  </div>
+  <script src="/static/i18n.js?v=place15"></script>
+  <script src="/static/app.js?v=place15"></script>
+</body>
+</html>
